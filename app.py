@@ -22,14 +22,44 @@ def get_gdrive_service():
     )
     return build('drive', 'v3', credentials=creds)
 
+#  def upload_to_drive(file_name, file_content, mime_type):
+#    """Handles the actual upload handshake with Google Drive."""
+#    try:
+#        service = get_gdrive_service()
+#        file_metadata = {'name': file_name, 'parents': [FOLDER_ID]}
+#        media = MediaIoBaseUpload(io.BytesIO(file_content), mimetype=mime_type, resumable=True)
+#        
+#        file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+#        return file.get('id')
+#    except Exception as e:
+#        st.error(f"Upload failed: {e}")
+#        return None
+
 def upload_to_drive(file_name, file_content, mime_type):
-    """Handles the actual upload handshake with Google Drive."""
     try:
         service = get_gdrive_service()
-        file_metadata = {'name': file_name, 'parents': [FOLDER_ID]}
-        media = MediaIoBaseUpload(io.BytesIO(file_content), mimetype=mime_type, resumable=True)
         
-        file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+        # Metadata
+        file_metadata = {
+            'name': file_name,
+            'parents': [FOLDER_ID]
+        }
+        
+        media = MediaIoBaseUpload(
+            io.BytesIO(file_content), 
+            mimetype=mime_type, 
+            resumable=True
+        )
+        
+        # THE FIX: We add supportsAllDrives=True 
+        # This tells Google to use the parent folder's quota logic
+        file = service.files().create(
+            body=file_metadata, 
+            media_body=media, 
+            fields='id',
+            supportsAllDrives=True  # Crucial for service accounts
+        ).execute()
+        
         return file.get('id')
     except Exception as e:
         st.error(f"Upload failed: {e}")
