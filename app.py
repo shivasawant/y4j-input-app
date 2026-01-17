@@ -2,33 +2,26 @@ import streamlit as st
 import io
 from datetime import date
 from googleapiclient.discovery import build
+from google.oauth2 import service_account
 from googleapiclient.http import MediaIoBaseUpload
-from google.oauth2.credentials import Credentials
 
 # --- CONSTANTS ---
 FOLDER_ID = "1_XXSyakCqZdKq72LFTd2g7iqH0enpt9L"
 
 # --- CORE FUNCTIONS ---
 def get_gdrive_service():
-    """Builds the Drive service using the token from the Streamlit session."""
-    # In Streamlit 1.42+, the token is stored in the user object
-    # If your version doesn't expose it directly, we use the session token
-    user_info = st.user
-    token = user_info.get("token") or user_info.get("access_token")
-    
-    if not token:
-        st.error("Authentication token not found. Please log out and log in again.")
-        return None
-        
-    creds = Credentials(token=token)
+    """Builds the Drive service using the Service Account from secrets."""
+    # This reads the [gcp_service_account] section from your secrets
+    info = st.secrets["gcp_service_account"]
+    creds = service_account.Credentials.from_service_account_info(
+        info, scopes=['https://www.googleapis.com/auth/drive.file']
+    )
     return build('drive', 'v3', credentials=creds)
 
 def upload_to_drive(file_name, file_content, mime_type):
     """Handles the actual upload handshake with Google Drive."""
     try:
         service = get_gdrive_service()
-        if not service: return None
-        
         file_metadata = {'name': file_name, 'parents': [FOLDER_ID]}
         media = MediaIoBaseUpload(io.BytesIO(file_content), mimetype=mime_type, resumable=True)
         
@@ -49,18 +42,16 @@ if not st.user.is_logged_in:
         st.login()
     st.stop()
 
-# --- 2. AUTHENTICATED SIDEBAR ---
-st.sidebar.title("Volunteer Info")
+# --- 2. AUTHENTICATED INTERFACE ---
 st.sidebar.write(f"Logged in: **{st.user.email}**")
 if st.sidebar.button("Logout"):
     st.logout()
 
-# --- 3. MAIN APP INTERFACE ---
 st.title("🏗️ Y4J Candidate Info Builder")
 
 with st.form("entry_form", clear_on_submit=True):
     st.subheader("New Contribution")
-    info_title = st.text_input("Candidate/Info Title", placeholder="e.g., John Doe - Bio")
+    info_title = st.text_input("Candidate/Info Title")
     category = st.selectbox("Category", ["Finance", "Legal", "Marketing", "Research", "Other"])
     entry_date = st.date_input("Document Date", date.today())
     details = st.text_area("Details/Description")
