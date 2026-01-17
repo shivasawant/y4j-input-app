@@ -1,7 +1,29 @@
 import streamlit as st
+import io
+
+from datetime import date
 from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
-from datetime import date
+from googleapiclient.http import MediaIoBaseUpload
+
+def upload_to_drive(file_name, content, mime_type='text/plain'):
+    # Use the token from the logged-in volunteer session
+    credentials = st.user.token 
+    service = build('drive', 'v3', credentials=credentials)
+    
+    # 1. Define the destination (Your 2 TB Folder ID)
+    # Replace 'ROOT_OR_FOLDER_ID' with your actual Folder ID from the URL
+    file_metadata = {
+        'name': file_name,
+        'parents': ['ROOT_OR_FOLDER_ID'] 
+    }
+    
+    # 2. Prepare the file data
+    media = MediaIoBaseUpload(io.BytesIO(content.encode()), mimetype=mime_type)
+    
+    # 3. Execute the upload
+    file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+    return file.get('id')
 
 st.set_page_config(page_title="Y4J Candidate Info Builder", layout="centered")
 
