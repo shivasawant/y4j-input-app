@@ -15,7 +15,7 @@ def upload_to_drive(file_name, content, mime_type='text/plain'):
     # Replace 'ROOT_OR_FOLDER_ID' with your actual Folder ID from the URL
     file_metadata = {
         'name': file_name,
-        'parents': ['ROOT_OR_FOLDER_ID'] 
+        'parents': ['1_XXSyakCqZdKq72LFTd2g7iqH0enpt9L'] 
     }
     
     # 2. Prepare the file data
