@@ -10,6 +10,10 @@ from google.auth.transport.requests import Request
 # --- CONSTANTS ---
 FOLDER_ID = "1_XXSyakCqZdKq72LFTd2g7iqH0enpt9L"
 
+if "google_auth" not in st.secrets:
+    st.error("Missing [google_auth] in Streamlit Secrets! Check your App Settings.")
+    st.stop()
+
 def get_admin_creds():
     """This function is SAFE. It looks for keys in your Streamlit dashboard."""
     # Ensure "google_auth" exists in your Streamlit Cloud Secrets menu
