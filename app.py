@@ -11,8 +11,12 @@ FOLDER_ID = "1_XXSyakCqZdKq72LFTd2g7iqH0enpt9L"
 # --- CORE FUNCTIONS ---
 def get_gdrive_service():
     """Builds the Drive service using the Service Account from secrets."""
-    # This reads the [gcp_service_account] section from your secrets
-    info = st.secrets["gcp_service_account"]
+    info = dict(st.secrets["gcp_service_account"])
+    
+    # THE FIX: Replace literal "\n" strings with actual newline characters
+    if "private_key" in info:
+        info["private_key"] = info["private_key"].replace("\\n", "\n")
+    
     creds = service_account.Credentials.from_service_account_info(
         info, scopes=['https://www.googleapis.com/auth/drive.file']
     )
