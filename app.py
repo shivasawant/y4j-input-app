@@ -23,11 +23,30 @@ st.title("🏗️ Y4J Candidate Info Builder")
 st.write("Welcome to the production builder. Use the tools below to submit data.")
 
 # 3. Data Entry Form
-with st.form("entry_form"):
-    info_title = st.text_input("Information Title")
-    details = st.text_area("Details")
-    submit = st.form_submit_button("Upload to Drive")
+with st.form("entry_form", clear_on_submit=True):
+    st.subheader("New Contribution")
+    
+    # Text input for the title
+    info_title = st.text_input("Information Title", placeholder="e.g., Annual Report 2025")
+    
+    # Dropdown for better organization in your 2 TB Drive
+    category = st.selectbox("Category", ["Finance", "Legal", "Marketing", "Research", "Other"])
+    
+    # Date picker (helps with sorting files/rows)
+    entry_date = st.date_input("Document Date", date.today())
+    
+    # Multi-line text for details
+    details = st.text_area("Details/Description", placeholder="Enter a brief summary of the info...")
+    
+    # Optional: File uploader for the 2 TB Drive
+    uploaded_file = st.file_uploader("Attach Document (PDF, PNG, JPG)", type=["pdf", "png", "jpg"])
+    
+    # The submit button
+    submit = st.form_submit_button("Upload to Production")
 
-    if submit:
-        # Here we will add the function to push to the 2 TB Drive
-        st.success("Saving to shivasawant's Drive...")
+if submit:
+    if not info_title:
+        st.error("Please provide a title before submitting.")
+    else:
+        # DATA PROCESSING LOGIC GOES HERE
+        st.success(f"Processing '{info_title}' for the {category} folder...")
