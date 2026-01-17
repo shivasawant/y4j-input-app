@@ -6,9 +6,9 @@ from google.oauth2 import service_account
 from googleapiclient.http import MediaIoBaseUpload
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
+
 # --- CONSTANTS ---
 FOLDER_ID = "1_XXSyakCqZdKq72LFTd2g7iqH0enpt9L"
-
 
 def get_admin_creds():
     """This function is SAFE. It looks for keys in your Streamlit dashboard."""
@@ -32,36 +32,28 @@ def get_admin_creds():
 
 # --- CORE FUNCTIONS ---
 def get_gdrive_service():
-    """Builds the Drive service using the Service Account from secrets."""
-    info = dict(st.secrets["gcp_service_account"])
+    """SAFE VERSION: Uses your 2 TB Refresh Token from Secrets."""
+    # This pulls from the [google_auth] section of your Streamlit Secrets
+    auth = st.secrets["google_auth"]
     
-    # THE FIX: Replace literal "\n" strings with actual newline characters
-    if "private_key" in info:
-        info["private_key"] = info["private_key"].replace("\\n", "\n")
-    
-    creds = service_account.Credentials.from_service_account_info(
-        info, scopes=['https://www.googleapis.com/auth/drive.file']
+    creds = Credentials(
+        token=None,
+        refresh_token=auth["refresh_token"],
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=auth["client_id"],
+        client_secret=auth["client_secret"]
     )
+    
+    # Automatically refresh the token if it's expired
+    if not creds.valid:
+        creds.refresh(Request())
+        
     return build('drive', 'v3', credentials=creds)
 
-#  def upload_to_drive(file_name, file_content, mime_type):
-#    """Handles the actual upload handshake with Google Drive."""
-#    try:
-#        service = get_gdrive_service()
-#        file_metadata = {'name': file_name, 'parents': [FOLDER_ID]}
-#        media = MediaIoBaseUpload(io.BytesIO(file_content), mimetype=mime_type, resumable=True)
-#        
-#        file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-#        return file.get('id')
-#    except Exception as e:
-#        st.error(f"Upload failed: {e}")
-#        return None
-
 def upload_to_drive(file_name, file_content, mime_type):
+    """Uploads files using YOUR 2 TB quota."""
     try:
         service = get_gdrive_service()
-        
-        # Metadata
         file_metadata = {
             'name': file_name,
             'parents': [FOLDER_ID]
@@ -73,15 +65,12 @@ def upload_to_drive(file_name, file_content, mime_type):
             resumable=True
         )
         
-        # THE FIX: We add supportsAllDrives=True 
-        # This tells Google to use the parent folder's quota logic
+        # This bills storage to the account associated with the Refresh Token
         file = service.files().create(
             body=file_metadata, 
             media_body=media, 
-            fields='id',
-            supportsAllDrives=True  # Crucial for service accounts
+            fields='id'
         ).execute()
-        
         return file.get('id')
     except Exception as e:
         st.error(f"Upload failed: {e}")
