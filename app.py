@@ -4,9 +4,31 @@ from datetime import date
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from googleapiclient.http import MediaIoBaseUpload
-
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
 # --- CONSTANTS ---
 FOLDER_ID = "1_XXSyakCqZdKq72LFTd2g7iqH0enpt9L"
+
+
+def get_admin_creds():
+    """This function is SAFE. It looks for keys in your Streamlit dashboard."""
+    # Ensure "google_auth" exists in your Streamlit Cloud Secrets menu
+    auth = st.secrets["google_auth"]
+    
+    creds = Credentials(
+        token=None,
+        refresh_token=auth["refresh_token"],  # Looks for the name 'refresh_token'
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=auth["client_id"],          # Looks for the name 'client_id'
+        client_secret=auth["client_secret"]   # Looks for the name 'client_secret'
+    )
+    
+    if not creds.valid:
+        creds.refresh(Request())
+        
+    return creds
+
+
 
 # --- CORE FUNCTIONS ---
 def get_gdrive_service():
