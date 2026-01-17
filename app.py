@@ -1,74 +1,103 @@
 import streamlit as st
 import io
-
 from datetime import date
 from googleapiclient.discovery import build
-from google.oauth2.credentials import Credentials
 from googleapiclient.http import MediaIoBaseUpload
 
-def upload_to_drive(file_name, content, mime_type='text/plain'):
-    # Use the token from the logged-in volunteer session
-    credentials = st.user.token 
-    service = build('drive', 'v3', credentials=credentials)
-    
-    # 1. Define the destination (Your 2 TB Folder ID)
-    # Replace 'ROOT_OR_FOLDER_ID' with your actual Folder ID from the URL
-    file_metadata = {
-        'name': file_name,
-        'parents': ['1_XXSyakCqZdKq72LFTd2g7iqH0enpt9L'] 
-    }
-    
-    # 2. Prepare the file data
-    media = MediaIoBaseUpload(io.BytesIO(content.encode()), mimetype=mime_type)
-    
-    # 3. Execute the upload
-    file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-    return file.get('id')
+# --- CONSTANTS ---
+# Replace this with your actual Folder ID from your 2 TB Drive URL
+FOLDER_ID = "1_XXSyakCqZdKq72LFTd2g7iqH0enpt9L"
 
-st.set_page_config(page_title="Y4J Candidate Info Builder", layout="centered")
+# --- CORE FUNCTIONS ---
+def upload_to_drive(file_name, file_content, mime_type):
+    """Handles the actual upload handshake with Google Drive."""
+    try:
+        # Streamlit 1.42+ stores the OIDC token in st.user.token
+        credentials = st.user.token 
+        service = build('drive', 'v3', credentials=credentials)
+        
+        file_metadata = {
+            'name': file_name,
+            'parents': [FOLDER_ID]
+        }
+        
+        # Wrap the content in a BytesIO stream for the API
+        media = MediaIoBaseUpload(
+            io.BytesIO(file_content), 
+            mimetype=mime_type, 
+            resumable=True
+        )
+        
+        file = service.files().create(
+            body=file_metadata, 
+            media_body=media, 
+            fields='id'
+        ).execute()
+        
+        return file.get('id')
+    except Exception as e:
+        st.error(f"Upload failed: {e}")
+        return None
 
-# 1. Force Login
-if not st.experimental_user.is_logged_in:
-    st.header("Volunteer Portal")
-    st.info("Please log in with your Google account to contribute.")
-    if st.button("Log in with Google"):
+# --- PAGE SETUP ---
+st.set_page_config(page_title="Y4J Input App", page_icon="🏗️", layout="centered")
+
+# --- 1. AUTHENTICATION WALL ---
+if not st.user.is_logged_in:
+    st.title("🏗️ Y4J Volunteer Portal")
+    st.info("Please log in to access the 2 TB Production Drive.")
+    if st.button("Log in with Google", type="primary"):
         st.login()
     st.stop()
 
-# 2. Authenticated View
-user = st.experimental_user
-st.sidebar.write(f"Logged in as: {user.email}")
+# --- 2. AUTHENTICATED SIDEBAR ---
+st.sidebar.title("Volunteer Info")
+st.sidebar.write(f"Logged in: **{st.user.email}**")
 if st.sidebar.button("Logout"):
     st.logout()
 
+# --- 3. MAIN APP INTERFACE ---
 st.title("🏗️ Y4J Candidate Info Builder")
-st.write("Welcome to the production builder. Use the tools below to submit data.")
+st.write("Submit candidate details and documents directly to the cloud.")
 
-# 3. Data Entry Form
 with st.form("entry_form", clear_on_submit=True):
     st.subheader("New Contribution")
     
-    # Text input for the title
-    info_title = st.text_input("Information Title", placeholder="e.g., Annual Report 2025")
-    
-    # Dropdown for better organization in your 2 TB Drive
-    category = st.selectbox("Category", ["Finance", "Legal", "Marketing", "Research", "Other"])
-    
-    # Date picker (helps with sorting files/rows)
-    entry_date = st.date_input("Document Date", date.today())
-    
-    # Multi-line text for details
-    details = st.text_area("Details/Description", placeholder="Enter a brief summary of the info...")
-    
-    # Optional: File uploader for the 2 TB Drive
-    uploaded_file = st.file_uploader("Attach Document (PDF, PNG, JPG)", type=["pdf", "png", "jpg"])
-    
-    # The submit button
-    submit = st.form_submit_button("Upload to Production")
+    col1, col2 = st.columns(2)
+    with col1:
+        info_title = st.text_input("Candidate/Info Title", placeholder="e.g., John Doe - Bio")
+        category = st.selectbox("Category", ["Finance", "Legal", "Marketing", "Research", "Other"])
+    with col2:
+        entry_date = st.date_input("Document Date", date.today())
 
+    details = st.text_area("Details/Description", help="Summarize the candidate or information here.")
+    
+    st.divider()
+    
+    st.write("### Attachments")
+    uploaded_file = st.file_uploader("Upload PDF or Image", type=["pdf", "png", "jpg", "jpeg"])
+    camera_photo = st.camera_input("OR Take a photo now")
+
+    submit = st.form_submit_button("🚀 Upload to Production Drive", use_container_width=True)
+
+# --- 4. SUBMISSION LOGIC ---
 if submit:
     if not info_title:
-        st.error("Please provide a title before submitting.")
+        st.error("Error: Please provide a title.")
     else:
-        # DATA PROCESSING LOGIC GOES HERE
-        st.success(f"Processing '{info_title}' for the {category} folder...")
+        with st.spinner("Pushing to 2 TB Storage..."):
+            # A. Upload the Text Details first
+            text_filename = f"{entry_date}_{category}_{info_title}_notes.txt"
+            upload_to_drive(text_filename, details.encode('utf-8'), 'text/plain')
+
+            # B. Upload File if provided
+            if uploaded_file:
+                upload_to_drive(uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)
+            
+            # C. Upload Camera Photo if taken
+            if camera_photo:
+                photo_name = f"{entry_date}_{info_title}_photo.jpg"
+                upload_to_drive(photo_name, camera_photo.getvalue(), 'image/jpeg')
+
+            st.success(f"Successfully uploaded '{info_title}' records to Drive!")
+            st.balloons()
